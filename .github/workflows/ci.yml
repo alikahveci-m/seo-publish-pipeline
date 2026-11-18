@@ -28,15 +28,20 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - name: Start staging and the stand-in production site
+        # One after the other: both download WordPress into the same cache on first start,
+        # and two downloads at once make the second one fail.
         run: |
-          npm run staging > staging.log 2>&1 &
-          npm run production:local > production.log 2>&1 &
-          for attempt in $(seq 1 90); do
-            grep -q Ready staging.log && grep -q Ready production.log && exit 0
-            sleep 2
-          done
-          cat staging.log production.log
-          exit 1
+          start() {
+            npm run "$1" > "$1.log" 2>&1 &
+            for attempt in $(seq 1 90); do
+              grep -q Ready "$1.log" && return 0
+              sleep 2
+            done
+            cat "$1.log"
+            return 1
+          }
+          start staging
+          start production:local
 
       - name: Production refuses content that was not verified
         run: |
