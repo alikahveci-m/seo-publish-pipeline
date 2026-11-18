@@ -1,0 +1,21 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "steps": [
+    {
+      "step": "defineWpConfigConsts",
+      "consts": {
+        "WP_ENVIRONMENT_TYPE": "local"
+      }
+    },
+    {
+      "step": "setSiteOptions",
+      "options": {
+        "blogname": "Pipeline Staging"
+      }
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; global $wp_rewrite; $wp_rewrite->set_permalink_structure('/%postname%/'); $wp_rewrite->flush_rules(false); add_filter('random_password', fn() => 'StagingOnlyNotASecret000'); WP_Application_Passwords::create_new_application_password(1, ['name' => 'pipeline']); wp_insert_post(['post_type' => 'post', 'post_status' => 'publish', 'post_name' => 'technical-seo-checklist', 'post_title' => 'Technical SEO checklist', 'post_content' => '<p>Seed article so internal links on staging have something to point at.</p>']);"
+    }
+  ]
+}

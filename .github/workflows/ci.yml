@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  release-path:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      STAGING_WP_URL: http://127.0.0.1:9400
+      STAGING_WP_USER: admin
+      STAGING_WP_APP_PASSWORD: StagingOnlyNotASecret000
+      # A second throwaway WordPress stands in for production so promote is tested too.
+      PRODUCTION_WP_URL: http://127.0.0.1:9401
+      PRODUCTION_WP_USER: admin
+      PRODUCTION_WP_APP_PASSWORD: StagingOnlyNotASecret000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+
+      - name: Start staging and the stand-in production site
+        run: |
+          npm run staging > staging.log 2>&1 &
+          npm run production:local > production.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            grep -q Ready staging.log && grep -q Ready production.log && exit 0
+            sleep 2
+          done
+          cat staging.log production.log
+          exit 1
+
+      - name: Production refuses content that was not verified
+        run: |
+          ! npm run promote
+
+      - run: npm run stage
+      - run: npm run verify
+      - run: npm run promote
+
+      - name: Production serves every article
+        run: |
+          for file in content/*.md; do
+            curl -fsS "$PRODUCTION_WP_URL/$(basename "$file" .md)/" | grep -q 'name="pipeline-hash"'
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/

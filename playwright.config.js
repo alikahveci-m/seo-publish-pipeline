@@ -1,0 +1,13 @@
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: 'tests/e2e',
+  fullyParallel: true,
+  forbidOnly: Boolean(process.env.CI),
+  reporter: [['list'], ['html', { open: 'never' }]],
+  use: { trace: 'retain-on-failure' },
+  projects: [
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    { name: 'mobile', use: { ...devices['Pixel 7'] } },
+  ],
+});
